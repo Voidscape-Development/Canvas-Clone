@@ -886,11 +886,16 @@ static void canvas_clone_destroy(void *data)
 	bfree(clone);
 }
 
+/* OBS_SOURCE_COMPOSITE must not be set here: libobs rejects a source that
+ * declares both OBS_SOURCE_COMPOSITE and OBS_SOURCE_AUDIO ("Composite sources
+ * cannot be audio sources") and the whole source then never registers, so it
+ * never shows up in the Add Source menu. OBS_SOURCE_AUDIO alone allocates the
+ * mix buffers the audio_render callback writes into and is what puts the source
+ * in the audio mixer once obs_source_set_audio_active() turns it on. */
 struct obs_source_info canvas_clone_source_info = {
 	.id = "canvas_clone",
 	.type = OBS_SOURCE_TYPE_INPUT,
-	.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_AUDIO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_COMPOSITE |
-			OBS_SOURCE_SRGB,
+	.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_AUDIO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_SRGB,
 	.icon_type = OBS_ICON_TYPE_CUSTOM,
 	.get_name = canvas_clone_get_name,
 	.create = canvas_clone_create,
