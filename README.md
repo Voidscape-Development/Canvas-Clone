@@ -1,59 +1,83 @@
-# OBS Plugin Template
+# Canvas Clone
 
-## Introduction
+An OBS Studio plugin that adds a **Canvas Clone** source: it mirrors the finished picture of another
+canvas — the main program canvas, a vertical canvas, or any canvas registered by another plugin — so
+you can place that feed inside a different canvas as if it were a live video source.
 
-The plugin template is meant to be used as a starting point for OBS Studio plugin development. It includes:
+The typical use: drop the **Main Canvas (Program)** feed into a vertical canvas. Scene switches,
+transitions, stingers, filters and everything else that happens on the main canvas show up in the
+vertical feed exactly as viewers of the main stream see it, so social clips keep the full production
+instead of a static crop.
 
-* Boilerplate plugin source code
-* A CMake project file
-* GitHub Actions workflows and repository actions
+## Requirements
 
-## Supported Build Environments
+* OBS Studio **31.1.0 or newer** — the plugin is built on the multi-canvas API (`obs_canvas_t`) that
+  shipped in 31.1. The module refuses to load on older versions.
+* Windows, macOS or Linux.
 
-| Platform  | Tool   |
-|-----------|--------|
-| Windows   | Visual Studio 17 2022 |
-| macOS     | XCode 16.0 |
-| Windows, macOS  | CMake 3.30.5 |
-| Ubuntu 24.04 | CMake 3.28.3 |
-| Ubuntu 24.04 | `ninja-build` |
-| Ubuntu 24.04 | `pkg-config`
-| Ubuntu 24.04 | `build-essential` |
+## Usage
 
-## Quick Start
+Add a source → **Canvas Clone**, then:
 
-An absolute bare-bones [Quick Start Guide](https://github.com/obsproject/obs-plugintemplate/wiki/Quick-Start-Guide) is available in the wiki.
+| Property | What it does |
+|----------|--------------|
+| **Clone** | Whether to mirror a whole canvas or a single scene/source. |
+| **Canvas** | The canvas to mirror. Lists the main canvas plus every canvas registered by another plugin. |
+| **Scene / Source** | In scene/source mode, the scene or source to mirror (scenes belonging to another canvas are prefixed with that canvas's name). |
+| **Render Mode** | How the picture is taken — see below. |
+| **Audio** | Off, mirror the cloned canvas/source's audio, or mirror a specific source. |
 
-## Documentation
+The source reports the cloned canvas's base resolution (e.g. 1920x1080), so scale, crop and position
+it with the normal scene transform — a bounding box set to "Scale to inner bounds" is the usual way
+to fit a 16:9 canvas into a 9:16 one.
 
-All documentation can be found in the [Plugin Template Wiki](https://github.com/obsproject/obs-plugintemplate/wiki).
+### Render modes
 
-Suggested reading to get up and running:
+**Canvas output (up to one frame behind)** — the default. Copies the canvas's finished output
+texture, so the clone is pixel-identical to a projector or recording of that canvas, costs one
+texture copy per frame regardless of how complex the scene is, and is safe to place *inside* the
+canvas it is cloning (that produces the familiar infinite-mirror effect, one frame deep per level).
 
-* [Getting started](https://github.com/obsproject/obs-plugintemplate/wiki/Getting-Started)
-* [Build system requirements](https://github.com/obsproject/obs-plugintemplate/wiki/Build-System-Requirements)
-* [Build system options](https://github.com/obsproject/obs-plugintemplate/wiki/CMake-Build-System-Options)
+**Live re-render (no added delay)** — draws the cloned canvas's program source again in place, in
+perfect sync with the canvas it is drawn into. The whole scene tree and its GPU filters render a
+second time each frame, so it costs more on heavy scenes. A clone placed inside the canvas it clones
+renders nothing on re-entry, since there is no buffered frame to fall back on.
 
-## GitHub Actions & CI
+### Audio
 
-Default GitHub Actions workflows are available for the following repository actions:
+Audio is off by default: the cloned canvas's audio is usually already in your mix, and cloning it
+again would double it up. When enabled, the source appears in the audio mixer and mirrors the
+target's existing audio mix — including transition fades and each source's own volume — which you
+can then mute, adjust or route to specific tracks like any other source.
 
-* `push`: Run for commits or tags pushed to `master` or `main` branches.
-* `pr-pull`: Run when a Pull Request has been pushed or synchronized.
-* `dispatch`: Run when triggered by the workflow dispatch in GitHub's user interface.
-* `build-project`: Builds the actual project and is triggered by other workflows.
-* `check-format`: Checks CMake and plugin source code formatting and is triggered by other workflows.
+Because libobs has no per-canvas audio mix (canvas audio folds into the main mix), the mirror reads
+the mix of the canvas's *program source*. That mix only exists while the target is live somewhere in
+OBS; a canvas or source that nothing else is rendering produces no audio to mirror.
 
-The workflows make use of GitHub repository actions (contained in `.github/actions`) and build scripts (contained in `.github/scripts`) which are not needed for local development, but might need to be adjusted if additional/different steps are required to build the plugin.
+### Notes and limits
 
-### Retrieving build artifacts
+* A canvas owned by another plugin may be recreated with a new UUID between launches, so the
+  canvas's name is saved alongside its UUID and used as a fallback. A canvas that hasn't loaded yet
+  stays selected in the properties list, marked `(not loaded)`, and reconnects on its own once it
+  appears.
+* HDR canvases are tonemapped when cloned into an SDR canvas, the same way OBS tonemaps a projector.
+* Canvas output is premultiplied and is converted back to straight alpha before being composited, so
+  scene blend modes and item opacity behave normally.
 
-Successful builds on GitHub Actions will produce build artifacts that can be downloaded for testing. These artifacts are commonly simple archives and will not contain package installers or installation programs.
+## Building
 
-### Building a Release
+The project uses the standard OBS plugin build system (CMake presets + the obs-deps toolchain);
+see the [plugin template wiki](https://github.com/obsproject/obs-plugintemplate/wiki) for the
+per-platform prerequisites.
 
-To create a release, an appropriately named tag needs to be pushed to the `main`/`master` branch using semantic versioning (e.g., `12.3.4`, `23.4.5-beta2`). A draft release will be created on the associated repository with generated installer packages or installation programs attached as release artifacts.
+```sh
+cmake --preset ubuntu-x86_64   # or windows-x64 / macos
+cmake --build --preset ubuntu-x86_64
+```
 
-## Signing and Notarizing on macOS
+GitHub Actions builds Windows, macOS and Ubuntu artifacts on every push and pull request; pushing a
+semver tag (e.g. `1.0.0`) produces a draft release with installer packages attached.
 
-Basic concepts of codesigning and notarization on macOS are explained in the correspodning [Wiki article](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS) which has a specific section for the [GitHub Actions setup](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS#setting-up-code-signing-for-github-actions).
+## License
+
+GPL-2.0-or-later. See [LICENSE](LICENSE).
