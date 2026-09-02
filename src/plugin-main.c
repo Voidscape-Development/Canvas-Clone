@@ -39,6 +39,14 @@ bool obs_module_load(void)
 
 	obs_register_source(&canvas_clone_source_info);
 
+	/* obs_register_source() only logs and returns on a rejected source_info,
+	 * which leaves the module loaded but the source missing from the Add
+	 * Source menu. Fail loudly instead of failing quietly. */
+	if (!obs_source_get_display_name(canvas_clone_source_info.id)) {
+		obs_log(LOG_ERROR, "failed to register the '%s' source", canvas_clone_source_info.id);
+		return false;
+	}
+
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	return true;
 }
