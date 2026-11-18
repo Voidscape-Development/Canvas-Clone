@@ -112,9 +112,30 @@ endif()
 
 # The macOS 26 SDK no longer has the AGL framework, but the FindWrapOpenGL module of the Qt in the OBS
 # dependencies still links it ("framework 'AGL' not found"). When the SDK has no AGL, point that
-# lookup at OpenGL, which Qt links anyway.
-find_library(_obs_agl_framework NAMES AGL)
-if(NOT _obs_agl_framework)
-  find_library(_obs_opengl_framework NAMES OpenGL REQUIRED)
-  set(WrapOpenGL_AGL "${_obs_opengl_framework}" CACHE FILEPATH "Stand-in for AGL, which the macOS SDK no longer has")
+# lookup at OpenGL, which Qt links anyway, and drop any AGL entry Qt adds regardless.
+execute_process(
+  COMMAND xcrun --sdk macosx --show-sdk-path
+  OUTPUT_VARIABLE _obs_macos_sdk_path
+  RESULT_VARIABLE _obs_macos_sdk_result
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(_obs_macos_sdk_result EQUAL 0 AND NOT EXISTS "${_obs_macos_sdk_path}/System/Library/Frameworks/AGL.framework")
+  set(
+    WrapOpenGL_AGL
+    "${_obs_macos_sdk_path}/System/Library/Frameworks/OpenGL.framework"
+    CACHE FILEPATH
+    "Stand-in for AGL, which the macOS SDK no longer has"
+    FORCE
+  )
+
+  function(_obs_drop_agl_from_wrapopengl)
+    if(TARGET WrapOpenGL::WrapOpenGL)
+      get_target_property(_obs_wrapopengl_libs WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
+      if(_obs_wrapopengl_libs)
+        list(FILTER _obs_wrapopengl_libs EXCLUDE REGEX "AGL")
+        set_target_properties(WrapOpenGL::WrapOpenGL PROPERTIES INTERFACE_LINK_LIBRARIES "${_obs_wrapopengl_libs}")
+      endif()
+    endif()
+  endfunction()
+  cmake_language(DEFER CALL _obs_drop_agl_from_wrapopengl)
 endif()
