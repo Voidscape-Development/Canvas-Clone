@@ -101,3 +101,11 @@ if(ENABLE_COMPILER_TRACE)
   )
   add_link_options(LINKER:-print_statistics)
 endif()
+
+# Xcode 26.6 passes several *_DEPLOYMENT_TARGET variables to build script phases. AUTOMOC runs the
+# compiler there to collect its predefined macros without naming a target, and clang then refuses
+# to choose between them ("conflicting deployment targets"). Naming the macOS target explicitly
+# makes clang ignore those variables.
+if(CMAKE_OSX_DEPLOYMENT_TARGET)
+  list(APPEND CMAKE_CXX_COMPILER_PREDEFINES_COMMAND "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
