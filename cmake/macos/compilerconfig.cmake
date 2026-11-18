@@ -109,3 +109,12 @@ endif()
 if(CMAKE_OSX_DEPLOYMENT_TARGET)
   list(APPEND CMAKE_CXX_COMPILER_PREDEFINES_COMMAND "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif()
+
+# The macOS 26 SDK no longer has the AGL framework, but the FindWrapOpenGL module of the Qt in the OBS
+# dependencies still links it ("framework 'AGL' not found"). When the SDK has no AGL, point that
+# lookup at OpenGL, which Qt links anyway.
+find_library(_obs_agl_framework NAMES AGL)
+if(NOT _obs_agl_framework)
+  find_library(_obs_opengl_framework NAMES OpenGL REQUIRED)
+  set(WrapOpenGL_AGL "${_obs_opengl_framework}" CACHE FILEPATH "Stand-in for AGL, which the macOS SDK no longer has")
+endif()
