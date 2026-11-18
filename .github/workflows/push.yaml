@@ -73,7 +73,8 @@ jobs:
 
           variants=(
             'windows-x64;zip|exe'
-            'windows-x64-Portable;zip'
+            'windows-legacy-x64;zip'
+            'windows-portable-legacy-x64;zip'
             'macos-universal;tar.xz|pkg'
             'ubuntu-24.04-x86_64;tar.xz|deb|ddeb'
             'sources;tar.xz'
@@ -118,3 +119,98 @@ jobs:
             ${{ github.workspace }}/*.deb
             ${{ github.workspace }}/*.ddeb
             ${{ github.workspace }}/*.tar.xz
+
+  nightly-release:
+    name: Update Nightly Pre-Release 🌙
+    if: github.ref_type == 'branch' && (github.ref_name == 'master' || github.ref_name == 'main')
+    runs-on: ubuntu-24.04
+    needs: build-project
+    concurrency:
+      group: nightly-release
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NIGHTLY_TAG: nightly
+    steps:
+      - name: Download Build Artifacts 📥
+        uses: actions/download-artifact@v4
+
+      - name: Collect Files 🏷️
+        run: |
+          : Collect Files 🏷️
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          shopt -s extglob
+          shopt -s nullglob
+
+          root_dir="$(pwd)"
+          commit_hash="${GITHUB_SHA:0:9}"
+
+          variants=(
+            'windows-x64;zip|exe'
+            'windows-legacy-x64;zip'
+            'windows-portable-legacy-x64;zip'
+            'macos-universal;tar.xz|pkg'
+            'ubuntu-24.04-x86_64;tar.xz|deb|ddeb'
+            'sources;tar.xz'
+          )
+
+          mkdir -p "${root_dir}/nightly"
+          for variant_data in "${variants[@]}"; do
+            IFS=';' read -r variant suffix <<< "${variant_data}"
+
+            candidates=(*-${variant}-${commit_hash}/@(*|*-dbgsym).@(${suffix}))
+
+            for candidate in "${candidates[@]}"; do
+              mv "${candidate}" "${root_dir}/nightly"
+            done
+          done
+
+      - name: Generate Release Notes 🪪
+        run: |
+          : Generate Release Notes 🪪
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          shopt -s extglob
+          shopt -s nullglob
+
+          notes="${{ github.workspace }}/NIGHTLY.md"
+          {
+            echo "Rolling development build of \`${GITHUB_REF_NAME}\`, rebuilt every time a commit lands."
+            echo "These builds are untested and may be unstable; use a tagged release for production."
+            echo
+            echo "**Commit:** ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+            echo "**Built:** $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            echo "### Checksums"
+            for file in nightly/@(*.exe|*.deb|*.ddeb|*.pkg|*.tar.xz|*.zip); do
+              echo "    ${file##*/}: $(sha256sum "${file}" | cut -d " " -f 1)"
+            done
+          } > "${notes}"
+
+      - name: Publish Nightly Pre-Release 🌙
+        run: |
+          : Publish Nightly Pre-Release 🌙
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+          shopt -s extglob
+          shopt -s nullglob
+
+          files=(nightly/@(*.exe|*.deb|*.ddeb|*.pkg|*.tar.xz|*.zip))
+          if (( ${#files[@]} == 0 )); then
+            echo '::error::No build artifacts found to publish.'
+            exit 1
+          fi
+
+          # Replace the previous nightly release and move its tag to this commit.
+          gh release delete "${NIGHTLY_TAG}" --cleanup-tag --yes || true
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${NIGHTLY_TAG}" || true
+
+          gh release create "${NIGHTLY_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --prerelease \
+            --latest=false \
+            --title "${{ needs.build-project.outputs.pluginName }} Nightly (${GITHUB_SHA:0:9})" \
+            --notes-file "${{ github.workspace }}/NIGHTLY.md" \
+            "${files[@]}"

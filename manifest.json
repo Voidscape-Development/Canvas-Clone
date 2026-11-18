@@ -1,0 +1,18 @@
+{
+    "display_name": "Canvas Clone",
+    "id": "86e6ca80-c4a6-4307-afe0-0bb569df11ac",
+    "version": "1.0.0",
+    "authors": [
+        "Voidscape Development"
+    ],
+    "name": "canvas-clone",
+    "description": "An OBS Studio plugin that adds a Canvas Clone source.",
+    "long_description": "An OBS Studio plugin that adds a Canvas Clone source: it mirrors the finished picture of another canvas — the main program canvas, a vertical canvas, or any canvas registered by another plugin — so you can place that feed inside a different canvas as if it were a live video source.",
+    "urls": {
+        "repository": "https://github.com/Voidscape-Development/Canvas-Clone",
+        "website": "https://github.com/Voidscape-Development/Canvas-Clone",
+        "support": "https://github.com/Voidscape-Development/Canvas-Clone/issues"
+    },
+    "has_banner": false,
+    "has_icon": false
+}

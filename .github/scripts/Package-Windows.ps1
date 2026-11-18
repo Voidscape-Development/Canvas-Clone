@@ -48,12 +48,13 @@ function Package {
     $ProductVersion = $BuildSpec.version
 
     $OutputName = "${ProductName}-${ProductVersion}-windows-${Target}"
+    $OutputNameLegacy = "${ProductName}-${ProductVersion}-windows-legacy-${Target}"
+    $OutputNamePortableLegacy = "${ProductName}-${ProductVersion}-windows-portable-legacy-${Target}"
 
     $RemoveArgs = @{
         ErrorAction = 'SilentlyContinue'
         Path = @(
             "${ProjectRoot}/release/${ProductName}-*-windows-*.zip"
-            "${ProjectRoot}/release-portable/${ProductName}-*-windows-*.zip"
         )
     }
 
@@ -61,7 +62,7 @@ function Package {
 
     Log-Group "Archiving ${ProductName}..."
     $CompressArgs = @{
-        Path = (Get-ChildItem -Path "${ProjectRoot}/release/${Configuration}" -Exclude "${OutputName}*.*")
+        Path = "${ProjectRoot}/release/${Configuration}/${ProductName}"
         CompressionLevel = 'Optimal'
         DestinationPath = "${ProjectRoot}/release/${OutputName}.zip"
         Verbose = ($Env:CI -ne $null)
@@ -69,41 +70,34 @@ function Package {
     Compress-Archive -Force @CompressArgs
     Log-Group
 
-    Log-Group "Archiving portable ${ProductName}..."
+    $LegacyPath = "${ProjectRoot}/release/${Configuration}/${ProductName}_legacy"
 
-    $InstallRoot = "${ProjectRoot}/release/${Configuration}/${ProductName}"
-    $PortableRoot = "${ProjectRoot}/release-portable/${Configuration}"
+    $PortableLegacyPath = "${ProjectRoot}/release/${Configuration}/${ProductName}_portable_legacy"
 
-    if ( ! ( Test-Path -Path "${InstallRoot}/bin" ) ) {
-        throw "No packaged binaries found at ${InstallRoot}/bin"
+    if ( Test-Path -Path $LegacyPath -PathType Container ) {
+        Log-Group "Archiving ${ProductName} Legacy..."
+        $CompressArgs = @{
+            Path = (Get-ChildItem -Path $LegacyPath -Exclude "${OutputNameLegacy}*.*")
+            CompressionLevel = 'Optimal'
+            DestinationPath = "${ProjectRoot}/release/${OutputNameLegacy}.zip"
+            Verbose = ($Env:CI -ne $null)
+        }
+        Compress-Archive -Force @CompressArgs
+        Log-Group
     }
 
-    if ( Test-Path -Path $PortableRoot ) {
-        Remove-Item -Path $PortableRoot -Recurse -Force
+    $PortableLegacyPath = "${ProjectRoot}/release/${Configuration}/${ProductName}_portable_legacy"
+    if ( Test-Path -Path $PortableLegacyPath -PathType Container ) {
+        Log-Group "Archiving ${ProductName} Portable Legacy..."
+        $CompressArgs = @{
+            Path = (Get-ChildItem -Path $PortableLegacyPath -Exclude "${OutputNamePortableLegacy}*.*")
+            CompressionLevel = 'Optimal'
+            DestinationPath = "${ProjectRoot}/release/${OutputNamePortableLegacy}.zip"
+            Verbose = ($Env:CI -ne $null)
+        }
+        Compress-Archive -Force @CompressArgs
+        Log-Group
     }
-
-    # Portable OBS installations expect plugins in obs-plugins/64bit and their
-    # resources in data/obs-plugins/<plugin name>, so the packaged install tree
-    # is rearranged into that layout before it is archived.
-    $PortableBinaryDir = "${PortableRoot}/obs-plugins"
-    $PortableDataDir = "${PortableRoot}/data/obs-plugins/${ProductName}"
-
-    New-Item -ItemType Directory -Force -Path $PortableBinaryDir, $PortableDataDir | Out-Null
-
-    Copy-Item -Path "${InstallRoot}/bin/*" -Destination $PortableBinaryDir -Recurse -Force
-
-    if ( Test-Path -Path "${InstallRoot}/data" ) {
-        Copy-Item -Path "${InstallRoot}/data/*" -Destination $PortableDataDir -Recurse -Force
-    }
-
-    $CompressArgs = @{
-        Path = (Get-ChildItem -Path $PortableRoot)
-        CompressionLevel = 'Optimal'
-        DestinationPath = "${ProjectRoot}/release-portable/${OutputName}-Portable.zip"
-        Verbose = ($Env:CI -ne $null)
-    }
-    Compress-Archive -Force @CompressArgs
-    Log-Group
 }
 
 Package
