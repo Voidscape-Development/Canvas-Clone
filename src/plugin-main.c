@@ -24,15 +24,14 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
-/* The canvas API this plugin is built on landed in OBS Studio 31.1. */
-#define REQUIRED_OBS_VERSION MAKE_SEMANTIC_VERSION(31, 1, 0)
+#define REQUIRED_OBS_VERSION MAKE_SEMANTIC_VERSION(33, 0, 0)
 
 bool obs_module_load(void)
 {
 	const uint32_t version = obs_get_version();
 
 	if (version < REQUIRED_OBS_VERSION) {
-		obs_log(LOG_ERROR, "OBS Studio 31.1.0 or newer is required, found %u.%u.%u", version >> 24,
+		obs_log(LOG_ERROR, "OBS Studio 33.0.0 or newer is required, found %u.%u.%u", version >> 24,
 			(version >> 16) & 0xFF, version & 0xFFFF);
 		return false;
 	}

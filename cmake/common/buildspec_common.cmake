@@ -67,9 +67,9 @@ function(_setup_obs_studio)
     COMMAND
       "${CMAKE_COMMAND}" -S "${dependencies_dir}/${_obs_destination}" -B
       "${dependencies_dir}/${_obs_destination}/build_${arch}" -G ${_cmake_generator} "${_cmake_arch}"
-      -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_PLUGINS:BOOL=OFF -DENABLE_FRONTEND:BOOL=OFF
-      -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh}
-      ${_cmake_extra}
+      -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_CORE_MODULES:BOOL=OFF -DENABLE_FRONTEND:BOOL=OFF
+      -DCMAKE_COMPILE_WARNING_AS_ERROR:BOOL=OFF -DOBS_VERSION_OVERRIDE:STRING=${_obs_version}
+      "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh} ${_cmake_extra}
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
     OUTPUT_QUIET
@@ -81,9 +81,12 @@ function(_setup_obs_studio)
     COMMAND "${CMAKE_COMMAND}" --build build_${arch} --target obs-frontend-api --config Debug --parallel
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result
-    COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET
+    OUTPUT_VARIABLE _process_output
+    ERROR_VARIABLE _process_output
   )
+  if(NOT _process_result EQUAL 0)
+    message(FATAL_ERROR "Building ${label} (Debug - ${arch}) failed:\n${_process_output}")
+  endif()
   message(STATUS "Build ${label} (Debug - ${arch}) - done")
 
   message(STATUS "Build ${label} (Release - ${arch})")
@@ -91,9 +94,12 @@ function(_setup_obs_studio)
     COMMAND "${CMAKE_COMMAND}" --build build_${arch} --target obs-frontend-api --config Release --parallel
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result
-    COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET
+    OUTPUT_VARIABLE _process_output
+    ERROR_VARIABLE _process_output
   )
+  if(NOT _process_result EQUAL 0)
+    message(FATAL_ERROR "Building ${label} (Release - ${arch}) failed:\n${_process_output}")
+  endif()
   message(STATUS "Build ${label} (Reelase - ${arch}) - done")
 
   message(STATUS "Install ${label} (${arch})")

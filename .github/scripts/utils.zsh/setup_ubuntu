@@ -14,9 +14,15 @@ pushd ${project_root}
 
 typeset -g QT_VERSION
 
+# Ubuntu 26.04 can be configured for the amd64v3 architecture variant, which makes apt read only the
+# binary-amd64v3 indexes. The obsproject PPA publishes plain amd64 builds only, so without this apt
+# silently falls back to the older distribution obs-studio package that lacks the libobs CMake files.
+local -a apt_variant_args=(-o APT::Architecture-Variants=amd64)
+
 local -a apt_args=(
   ${CI:+-y}
   --no-install-recommends
+  ${apt_variant_args}
 )
 if (( _loglevel == 0 )) apt_args+=(--quiet)
 
@@ -36,7 +42,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
   }
 
   sudo add-apt-repository --yes ppa:obsproject/obs-studio
-  sudo apt update
+  sudo apt-get ${apt_variant_args} update
 
   sudo apt-get install ${apt_args} \
     build-essential \

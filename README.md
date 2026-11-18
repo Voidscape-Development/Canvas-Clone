@@ -11,8 +11,7 @@ instead of a static crop.
 
 ## Requirements
 
-* OBS Studio **31.1.0 or newer** — the plugin is built on the multi-canvas API (`obs_canvas_t`) that
-  shipped in 31.1. The module refuses to load on older versions.
+* OBS Studio **33.0.0 or newer**. The module refuses to load on older versions.
 * Windows, macOS or Linux.
 
 ## Usage

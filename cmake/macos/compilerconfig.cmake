@@ -16,8 +16,8 @@ add_compile_options("$<$<NOT:$<COMPILE_LANGUAGE:Swift>>:-fopenmp-simd>")
 
 # Ensure recent enough Xcode and platform SDK
 function(check_sdk_requirements)
-  set(obs_macos_minimum_sdk 15.0) # Keep in sync with Xcode
-  set(obs_macos_minimum_xcode 16.0) # Keep in sync with SDK
+  set(obs_macos_minimum_sdk 26.5) # Keep in sync with Xcode
+  set(obs_macos_minimum_xcode 26.5) # Keep in sync with SDK
   execute_process(
     COMMAND xcrun --sdk macosx --show-sdk-platform-version
     OUTPUT_VARIABLE obs_macos_current_sdk
@@ -100,4 +100,42 @@ if(ENABLE_COMPILER_TRACE)
     "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -debug-time-function-bodies>"
   )
   add_link_options(LINKER:-print_statistics)
+endif()
+
+# Xcode 26.6 passes several *_DEPLOYMENT_TARGET variables to build script phases. AUTOMOC runs the
+# compiler there to collect its predefined macros without naming a target, and clang then refuses
+# to choose between them ("conflicting deployment targets"). Naming the macOS target explicitly
+# makes clang ignore those variables.
+if(CMAKE_OSX_DEPLOYMENT_TARGET)
+  list(APPEND CMAKE_CXX_COMPILER_PREDEFINES_COMMAND "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
+
+# The macOS 26 SDK no longer has the AGL framework, but the FindWrapOpenGL module of the Qt in the OBS
+# dependencies still links it ("framework 'AGL' not found"). When the SDK has no AGL, point that
+# lookup at OpenGL, which Qt links anyway, and drop any AGL entry Qt adds regardless.
+execute_process(
+  COMMAND xcrun --sdk macosx --show-sdk-path
+  OUTPUT_VARIABLE _obs_macos_sdk_path
+  RESULT_VARIABLE _obs_macos_sdk_result
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(_obs_macos_sdk_result EQUAL 0 AND NOT EXISTS "${_obs_macos_sdk_path}/System/Library/Frameworks/AGL.framework")
+  set(
+    WrapOpenGL_AGL
+    "${_obs_macos_sdk_path}/System/Library/Frameworks/OpenGL.framework"
+    CACHE FILEPATH
+    "Stand-in for AGL, which the macOS SDK no longer has"
+    FORCE
+  )
+
+  function(_obs_drop_agl_from_wrapopengl)
+    if(TARGET WrapOpenGL::WrapOpenGL)
+      get_target_property(_obs_wrapopengl_libs WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
+      if(_obs_wrapopengl_libs)
+        list(FILTER _obs_wrapopengl_libs EXCLUDE REGEX "AGL")
+        set_target_properties(WrapOpenGL::WrapOpenGL PROPERTIES INTERFACE_LINK_LIBRARIES "${_obs_wrapopengl_libs}")
+      endif()
+    endif()
+  endfunction()
+  cmake_language(DEFER CALL _obs_drop_agl_from_wrapopengl)
 endif()
